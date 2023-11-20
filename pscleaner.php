@@ -34,17 +34,15 @@ class PSCleaner extends Module
     {
         $this->name = 'pscleaner';
         $this->tab = 'administration';
-        $this->version = '2.1.0';
+        $this->version = '2.2.0';
         $this->author = 'PrestaShop';
         $this->need_instance = 0;
-        $this->multishop_context = Shop::CONTEXT_ALL;
 
         $this->bootstrap = true;
         parent::__construct();
 
         $this->displayName = $this->trans('PrestaShop Cleaner', array(), 'Modules.Pscleaner.Admin');
         $this->description = $this->trans('PrestaShop helps you remove your catalog, orders and customers data in one go.', array(), 'Modules.Pscleaner.Admin');
-        $this->secure_key = Tools::encrypt($this->name);
         $this->ps_versions_compliancy = array('min' => '1.7.1.0', 'max' => _PS_VERSION_);
     }
 
@@ -152,10 +150,14 @@ class PSCleaner extends Module
             }
 
             $query = 'DELETE FROM `'._DB_PREFIX_.$query_array[0].'` WHERE `'.$query_array[1].'` NOT IN (SELECT `'.$query_array[3].'` FROM `'._DB_PREFIX_.$query_array[2].'`)';
-            if ($db->Execute($query)) {
-                if ($affected_rows = $db->Affected_Rows()) {
-                    $logs[$query] = $affected_rows;
+            try {
+                if ($db->Execute($query)) {
+                    if ($affected_rows = $db->Affected_Rows()) {
+                        $logs[$query] = $affected_rows;
+                    }
                 }
+            } catch (Exception $e) {
+                //If query error, just ignore it
             }
         }
 
@@ -245,7 +247,11 @@ class PSCleaner extends Module
                 }
                 $tables = self::getCatalogRelatedTables();
                 foreach ($tables as $table) {
-                    $db->execute('TRUNCATE TABLE `'._DB_PREFIX_.bqSQL($table).'`');
+                    try{
+                        $db->execute('TRUNCATE TABLE `'._DB_PREFIX_.bqSQL($table).'`');
+                    }catch(Exception $e){
+                        //If query error, just ignore it
+                    }
                 }
                 $db->execute('DELETE FROM `'._DB_PREFIX_.'address` WHERE id_manufacturer > 0 OR id_supplier > 0 OR id_warehouse > 0');
 
@@ -281,7 +287,11 @@ class PSCleaner extends Module
                 }
 
                 foreach ($tables as $table) {
-                    $db->execute('TRUNCATE TABLE `'._DB_PREFIX_.bqSQL($table).'`');
+                    try{
+                        $db->execute('TRUNCATE TABLE `'._DB_PREFIX_.bqSQL($table).'`');
+                    }catch(Exception $e){
+                        //If query error, just ignore it
+                    }
                 }
                 $db->execute('DELETE FROM `'._DB_PREFIX_.'address` WHERE id_customer > 0');
                 $db->execute('UPDATE `'._DB_PREFIX_.'employee` SET `id_last_order` = 0,`id_last_customer_message` = 0,`id_last_customer` = 0');
@@ -472,7 +482,6 @@ class PSCleaner extends Module
         $lang = new Language((int) Configuration::get('PS_LANG_DEFAULT'));
         $helper->default_form_language = $lang->id;
         $helper->allow_employee_form_lang = Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') ? Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') : 0;
-        $this->fields_form = array();
         $helper->id = (int) Tools::getValue('id_carrier');
         $helper->identifier = $this->identifier;
         $helper->submit_action = 'btnSubmit';
